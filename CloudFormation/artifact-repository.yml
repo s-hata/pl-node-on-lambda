@@ -1,0 +1,21 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Artifact Repository Resource for Web Application PoC"
+Parameters:
+  ParentStackName:
+    Description: "(Should be defined) Parent Stack Name for This Stack Resources"
+    Type: "String"
+Resources:
+  ArtifactRepository:
+    Type: "AWS::S3::Bucket"
+    DeletionPolicy: "Delete"
+    Properties:
+      AccessControl: "BucketOwnerFullControl"
+      Tags:
+        - Key: "Name"
+          Value: "Artifact Repository"
+        - Key: "Owner"
+          Value: !Ref ParentStackName
+Outputs:
+  Name:
+    Description: "Name of Artifact Repository S3 Bucket"
+    Value: !Ref ArtifactRepository

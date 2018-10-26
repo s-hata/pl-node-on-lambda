@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Client App deploy Resources for Web Application PoC"
+Parameters:
+  ParentStackName:
+    Description: "(Should be defined) Parent Stack Name for This Stack Resources"
+    Type: "String"
+Mappings:
+  Constraints:
+    BuildResources:
+      CodeBuildImage: "alpine:3.8"
+      ComputeType: "BUILD_GENERAL1_SMALL"
+      BuildSpec: "spec-files/deploy-frontend.yml"
+Resources:
+  ClientAppDeploy:
+    Type: "AWS::CodeBuild::Project"
+    Properties:
+      Artifacts:
+        Type: "CODEPIPELINE"
+      Environment:
+        ComputeType: !FindInMap [ Constraints, BuildResources, ComputeType ]
+        Image: !FindInMap [Constraints, BuildResources, CodeBuildImage]
+        Type: "LINUX_CONTAINER"
+        EnvironmentVariables:
+          - Name: TARGET_CLIENT_STK
+            Value: !Sub "${ParentStackName}-todos-frontend"
+          - Name: TARGET_SERVER_STK
+            Value: !Sub "${ParentStackName}-todos-backend"
+      Name: !Sub "${ParentStackName}-client-deploy"
+      ServiceRole: !Ref CodeBuildServiceRoleForClientAppDeploy
+      Source:
+        BuildSpec: !FindInMap [ Constraints, BuildResources, BuildSpec ]
+        Type: "CODEPIPELINE"
+      Tags:
+        - Key: "Name"
+          Value: "Deploy Client"
+        - Key: "Owner"
+          Value: !Ref ParentStackName
+      TimeoutInMinutes: "10"
+  CodeBuildServiceRoleForClientAppDeploy:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "codebuild.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: !Sub "${ParentStackName}-client-deploy-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Resource:
+                  - "*"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+              - Effect: "Allow"
+                Resource:
+                  - "*"
+                Action:
+                  - "s3:PutObject"
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+              - Effect: Allow
+                Resource:
+                  - "*"
+                Action:
+                  - "cloudformation:*"
+Outputs:
+  ProjectName: 
+    Description: "Created CodeBuild Client App Deploy Project Name"
+    Value: !Ref ClientAppDeploy

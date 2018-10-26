@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Pipeline Resources for Serverless Web Application"
+Parameters:
+  CFnTemplateBucketName:
+    Description: "(Should be defined) S3 Bucket Name for CFn Templates placed"
+    Type: "String"
+  CFnTemplateBucketRegion:
+    Description: "(Should be defined) S3 Bucket Region for CFn Templates placed"
+    Type: "String"
+  SourceCodeRepositoryName:
+    Description: "(Should be defined) KeyPairName for EC2 Instance"
+    Type: "String"
+Mappings:
+  Constraints:
+    Project:
+      Name: "pl-node-on-lambda"
+    SourceCodeRepository:
+      TargetBranch: "master"
+    CFn:
+      ArtifactRepository: "CloudFormation/artifact-repository.yml"
+      BuildFrontend: "CloudFormation/build-frontend.yml"
+      BuildBackend: "CloudFormation/build-backend.yml"
+      DeployFrontend: "CloudFormation/deploy-frontend.yml"
+      Pipeline: "CloudFormation/pipeline.yml"
+Conditions:
+  IsUsEast1: !Equals [ !Ref CFnTemplateBucketRegion, "us-east-1" ]
+  IsUsEast2: !Equals [ !Ref CFnTemplateBucketRegion, "us-east-2" ]
+Resources:
+  ArtifactRepository:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL:
+        Fn::Sub:
+          - "https://s3${Region}.amazonaws.com/${CFnTemplateBucketName}/${ProjectName}/${Path}"
+          - {
+              Region: !If [ IsUsEast1, "", !If [ IsUsEast2, ".${AWS::Region}", !Sub "-${AWS::Region}" ]],
+              ProjectName: !FindInMap [ Constraints, Project, Name ],
+              Path: !FindInMap [ Constraints, CFn, ArtifactRepository ]
+            }
+      TimeoutInMinutes: "5"
+      Parameters:
+        ParentStackName: !Ref AWS::StackName
+  BuildFrontend:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL:
+        Fn::Sub:
+          - "https://s3${Region}.amazonaws.com/${CFnTemplateBucketName}/${ProjectName}/${Path}"
+          - {
+              Region: !If [ IsUsEast1, "", !If [ IsUsEast2, ".${AWS::Region}", !Sub "-${AWS::Region}" ]],
+              ProjectName: !FindInMap [ Constraints, Project, Name ],
+              Path: !FindInMap [ Constraints, CFn, BuildFrontend ]
+            }
+      TimeoutInMinutes: "5"
+      Parameters:
+        ParentStackName: !Ref AWS::StackName
+        ArtifactRepositoryName: !GetAtt ArtifactRepository.Outputs.Name
+  BuildBackend:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL:
+        Fn::Sub:
+          - "https://s3${Region}.amazonaws.com/${CFnTemplateBucketName}/${ProjectName}/${Path}"
+          - {
+              Region: !If [ IsUsEast1, "", !If [ IsUsEast2, ".${AWS::Region}", !Sub "-${AWS::Region}" ]],
+              ProjectName: !FindInMap [ Constraints, Project, Name ],
+              Path: !FindInMap [ Constraints, CFn, BuildBackend ]
+            }
+      TimeoutInMinutes: "5"
+      Parameters:
+        ParentStackName: !Ref AWS::StackName
+        ArtifactRepositoryName: !GetAtt ArtifactRepository.Outputs.Name
+  DeployFrontend: 
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL:
+        Fn::Sub:
+          - "https://s3${Region}.amazonaws.com/${CFnTemplateBucketName}/${ProjectName}/${Path}"
+          - {
+              Region: !If [ IsUsEast1, "", !If [ IsUsEast2, ".${AWS::Region}", !Sub "-${AWS::Region}" ]],
+              ProjectName: !FindInMap [ Constraints, Project, Name ],
+              Path: !FindInMap [ Constraints, CFn, DeployFrontend ]
+            }
+      TimeoutInMinutes: "5"
+      Parameters:
+        ParentStackName: !Ref AWS::StackName
+  Pipeline:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TimeoutInMinutes: "5"
+      TemplateURL:
+        Fn::Sub:
+          - "https://s3${Region}.amazonaws.com/${CFnTemplateBucketName}/${ProjectName}/${Path}"
+          - {
+              Region: !If [ IsUsEast1, "", !If [ IsUsEast2, ".${AWS::Region}", !Sub "-${AWS::Region}" ]],
+              ProjectName: !FindInMap [ Constraints, Project, Name ],
+              Path: !FindInMap [ Constraints, CFn, Pipeline ]
+            }
+      Parameters:
+        ParentStackName: !Ref AWS::StackName
+        SourceRepositoryName: !Ref SourceCodeRepositoryName
+        Branch: !FindInMap [ Constraints, SourceCodeRepository, TargetBranch ]
+        ArtifactRepositoryName: !GetAtt ArtifactRepository.Outputs.Name
+        ClientBuildUTProjectName: !GetAtt BuildFrontend.Outputs.ProjectName
+        ServerBuildUTProjectName: !GetAtt BuildBackend.Outputs.ProjectName
+        ClientDeployProjectName: !GetAtt DeployFrontend.Outputs.ProjectName
+        ServerAppName: !Sub "${AWS::StackName}-server-app"
+Outputs:
+  AetifactBucketName:
+    Description: "Artifact S3 Bucket Name (make it empty befor delete pipeline CFn stack)"
+    Value: !GetAtt ArtifactRepository.Outputs.Name

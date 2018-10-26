@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Source Repository CFn template for Ignite Java Stack"
+Parameters:
+Parameters:
+  ParentStackName:
+    Description: "(Should be defined) Parent Stack Name for This Stack Resources"
+    Type: "String"
+  SourceCodeRepositoryName:
+    Description: "(Should be defined) Parent Stack Name for This Stack Resources"
+    Type: "String"
+Resources:
+  SourceCodeRepository:
+    Type: "AWS::CodeCommit::Repository"
+    Properties:
+      RepositoryDescription: "Source Code Repository for Web Application PoC."
+      RepositoryName: !Ref SourceCodeRepositoryName
+Outputs:
+  Name:
+    Description: "The Name for source code repository"
+    Value: !GetAtt SourceCodeRepository.Name
+  CloneUrlHTTPS:
+    Description: "The URL to use for cloning the repository over HTTPS"
+    Value: !GetAtt SourceCodeRepository.CloneUrlHttp
+  CloneUrlSSH:
+    Description: "The URL to use for cloning the repository over SSH"
+    Value: !GetAtt SourceCodeRepository.CloneUrlSsh

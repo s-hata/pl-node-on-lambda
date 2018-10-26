@@ -1,0 +1,178 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Serverless Todos Application Build Pipeline resources"
+Parameters:
+  ParentStackName:
+    Description: "(Should be defined) Parent Stack Name for This Stack Resources"
+    Type: "String"
+  SourceRepositoryName:
+    Description: "(Should be defined) CodeCommit Repository"
+    Type: "String"
+  Branch:
+    Description: "(Should be defined) Codecommit Branch Used in CodeBuild"
+    Type: "String"
+  ArtifactRepositoryName:
+    Description: "(Should be defined) Artifact Bucket"
+    Type: "String"
+  ClientBuildUTProjectName:
+    Description: "(Should be defined) CodeBuild project Name for Client Build and UT"
+    Type: "String"
+  ServerBuildUTProjectName:
+    Description: "(Should be defined) CodeBuild project Name for Server Build and UT"
+    Type: "String"
+  ClientDeployProjectName:
+    Description: "(Should be defined) CodeBuild project Name for Client Deploy"
+    Type: "String"
+  ServerAppName:
+    Description: "(Should be defined) server application name"
+    Type: "String"
+Mappings:
+  Constraints:
+    CFt:
+      FrontendRuntime: "infra/frontend-runtime.yml"
+    Config:
+      FrontendRuntime: "infra/frontend-runtime-config.json"
+Resources:
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactRepositoryName
+      RestartExecutionOnUpdate: true
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      Stages:
+      - Name: "Source"
+        Actions:
+        - Name: "Source"
+          InputArtifacts: []
+          ActionTypeId:
+            Category: "Source"
+            Owner: "AWS"
+            Version: "1"
+            Provider: "CodeCommit"
+          OutputArtifacts:
+          - Name: "SourceFetch"
+          Configuration:
+            RepositoryName: !Ref SourceRepositoryName
+            BranchName: !Ref Branch
+          RunOrder: 1
+      - Name: "Build"
+        Actions:
+        - Name: "Build_Frontend"
+          InputArtifacts:
+            - Name: "SourceFetch"
+          ActionTypeId:
+            Category: "Build"
+            Owner: "AWS"
+            Version: "1"
+            Provider: "CodeBuild"
+          Configuration:
+            ProjectName: !Ref ClientBuildUTProjectName
+          OutputArtifacts:
+            - Name: "FrontendBuild"
+        - Name: "BackendBuild"
+          InputArtifacts:
+            - Name: "SourceFetch"
+          ActionTypeId:
+            Category: "Build"
+            Owner: "AWS"
+            Version: "1"
+            Provider: "CodeBuild"
+          Configuration:
+            ProjectName: !Ref ServerBuildUTProjectName
+          OutputArtifacts:
+            - Name: "BackendBuild"
+      - Name: Deploy
+        Actions:
+          - Name: "Deploy_Frontend_Runtime"
+            InputArtifacts:
+              - Name: "FrontendBuild"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: "CREATE_UPDATE"
+              StackName: !Sub "${ParentStackName}-todos-frontend"
+              TemplatePath:
+                Fn::Sub:
+                  - "FrontendBuild::${CFt}"
+                  - {
+                      CFt: !FindInMap [ Constraints, CFt, FrontendRuntime ]
+                    }
+              TemplateConfiguration:
+                Fn::Sub:
+                  - "FrontendBuild::${Config}"
+                  - {
+                      Config: !FindInMap [ Constraints, Config, FrontendRuntime ]
+                    }
+              Capabilities: "CAPABILITY_NAMED_IAM"
+              RoleArn: !GetAtt CloudformationRole.Arn
+            RunOrder: 1
+          - Name: CreateChangeSet
+            ActionTypeId:
+              Category: Deploy
+              Owner: AWS
+              Provider: CloudFormation
+              Version: '1'
+            InputArtifacts:
+              - Name: BackendBuild
+            Configuration:
+              ActionMode: CHANGE_SET_REPLACE
+              Capabilities: CAPABILITY_IAM
+              RoleArn: !GetAtt CloudformationRole.Arn
+              StackName: !Sub "${ParentStackName}-todos-backend"
+              ChangeSetName: changeset
+              TemplatePath: !Sub "BackendBuild::app/backend/dist/packaged-sam.yml" # Must match buildspec.yml value
+            RunOrder: 1
+          - Name: ExecuteChangeSet
+            ActionTypeId:
+              Category: Deploy
+              Owner: AWS
+              Provider: CloudFormation
+              Version: '1'
+            Configuration:
+              ActionMode: CHANGE_SET_EXECUTE
+              Capabilities: CAPABILITY_IAM
+              ChangeSetName: changeset
+              RoleArn: !GetAtt CloudformationRole.Arn
+              StackName: !Sub "${ParentStackName}-todos-backend"
+            RunOrder: 2
+          - Name: "Deploy_Frontend"
+            InputArtifacts:
+              - Name: "FrontendBuild"
+            ActionTypeId:
+              Category: "Build"
+              Owner: "AWS"
+              Version: "1"
+              Provider: "CodeBuild"
+            Configuration:
+              ProjectName: !Ref ClientDeployProjectName
+            RunOrder: 3
+
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codepipeline.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess #TODO: Reduce permissions
+
+  CloudformationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: "Allow"
+          Principal:
+            Service: "cloudformation.amazonaws.com"
+          Action: "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AdministratorAccess"

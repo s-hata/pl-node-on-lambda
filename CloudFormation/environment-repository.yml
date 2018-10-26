@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Repository Resources for Serverless Web Application"
+Parameters:
+  CFnTemplateBucketName:
+    Description: "(Should be defined) S3 Bucket Name for CFn Templates placed"
+    Type: "String"
+  CFnTemplateBucketRegion:
+    Description: "(Should be defined) S3 Bucket Region for CFn Templates placed"
+    Type: "String"
+  Repository:
+    Description: "(Should be defined) Source Code Repository Name, CodeCommit access IAM User Name"
+    Type: "String"
+Mappings:
+  Constraints:
+    Project:
+      Name: "pl-node-on-lambda"
+    CFn:
+      SourceCodeRepository: "CloudFormation/sourcecode-repository.yml"
+      SourceCodeRepositoryUser: "CloudFormation/sourcecode-repository-user.yml"
+Conditions:
+  IsUsEast1: !Equals [ !Ref CFnTemplateBucketRegion, "us-east-1" ]
+  IsUsEast2: !Equals [ !Ref CFnTemplateBucketRegion, "us-east-2" ]
+Resources:
+  SourceCodeRepository:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL:
+        Fn::Sub:
+          - "https://s3${Region}.amazonaws.com/${CFnTemplateBucketName}/${ProjectName}/${Path}"
+          - {
+              Region: !If [ IsUsEast1, "", !If [ IsUsEast2, ".${AWS::Region}", !Sub "-${AWS::Region}" ]],
+              ProjectName: !FindInMap [ Constraints, Project, Name ],
+              Path: !FindInMap [ Constraints, CFn, SourceCodeRepository ]
+            }
+      TimeoutInMinutes: "5"
+      Parameters:
+        ParentStackName: !Ref AWS::StackName
+        SourceCodeRepositoryName: !Ref Repository
+  SourceCodeRepositoryUser:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL:
+        Fn::Sub:
+          - "https://s3${Region}.amazonaws.com/${CFnTemplateBucketName}/${ProjectName}/${Path}"
+          - {
+              Region: !If [ IsUsEast1, "", !If [ IsUsEast2, ".${AWS::Region}", !Sub "-${AWS::Region}" ]],
+              ProjectName: !FindInMap [ Constraints, Project, Name ],
+              Path: !FindInMap [ Constraints, CFn, SourceCodeRepositoryUser ]
+            }
+      TimeoutInMinutes: "5"
+      Parameters:
+        ParentStackName: !Ref AWS::StackName
+Outputs:
+  CodeCommitCloneUrlHTTPS:
+    Description: "The URL to use for cloning the repository over HTTPS"
+    Value: !GetAtt SourceCodeRepository.Outputs.CloneUrlHTTPS
+  CodeCommitCloneUrlSSH:
+    Description: "The URL to use for cloning the repository over SSH"
+    Value: !GetAtt SourceCodeRepository.Outputs.CloneUrlSSH

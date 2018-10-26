@@ -1,0 +1,25 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Source Code Repository Access IAM User Resources for Web Application PoC"
+Parameters:
+  ParentStackName:
+    Description: "(Should be defined) Parent Stack Name for This Stack Resources"
+    Type: "String"
+Resources:
+  CodeCommitIamUser:
+    Type: "AWS::IAM::User"
+    Properties:
+      UserName: !Ref ParentStackName
+      Policies:
+        - PolicyName: !Sub "${ParentStackName}-sourcecode-repository-user-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "codecommit:*"
+                Resource:
+                  - "*"
+Outputs:
+  Arn:
+    Description: "The ARN for Code Repository Access IAM User"
+    Value: !GetAtt CodeCommitIamUser.Arn

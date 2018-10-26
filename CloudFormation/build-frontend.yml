@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Frontend Build/UnitTest Resources for Serverless Web Application"
+Parameters:
+  ParentStackName:
+    Description: "(Should be defined) Parent Stack Name for This Stack Resources"
+    Type: "String"
+  ArtifactRepositoryName:
+    Description: "(Should be defined) Artifact Bucket"
+    Type: "String"
+Mappings:
+  Constraints:
+    BuildResources:
+      CodeBuildImage: "mhart/alpine-node:8"
+      ComputeType: "BUILD_GENERAL1_SMALL"
+      BuildSpec: "spec-files/build-frontend.yml"
+Resources:
+  FrontendBuild:
+    Type: "AWS::CodeBuild::Project"
+    Properties:
+      Artifacts:
+        Type: "CODEPIPELINE"
+      Environment:
+        ComputeType: !FindInMap [ Constraints, BuildResources, ComputeType ]
+        Image: !FindInMap [ Constraints, BuildResources, CodeBuildImage ]
+        Type: "LINUX_CONTAINER"
+        EnvironmentVariables:
+          - Name: S3_BUCKET_NAME
+            Value: !Ref ArtifactRepositoryName
+      Name: !Sub "${ParentStackName}-frontend-build"
+      ServiceRole: !Ref CodeBuildServiceRoleForFrontendBuild
+      Source:
+        BuildSpec: !FindInMap [ Constraints, BuildResources, BuildSpec ]
+        Type: "CODEPIPELINE"
+      Cache:
+        Location: !Sub "${ArtifactRepositoryName}/frontend-build"
+        Type: "S3"
+      Tags:
+        - Key: "Name"
+          Value: "Build and UT Frontend"
+        - Key: "Owner"
+          Value: !Ref ParentStackName
+      TimeoutInMinutes: "10"
+  CodeBuildServiceRoleForFrontendBuild:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "codebuild.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: !Sub "${ParentStackName}-frontend-build-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Resource: 
+                  - "*"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+              - Effect: "Allow"
+                Resource:
+                  - "*"
+                Action:
+                  - "s3:PutObject"
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+Outputs:
+  ProjectName: 
+    Description: "Created CodeBuild Frontend Build and Ut Project Name"
+    Value: !Ref FrontendBuild
