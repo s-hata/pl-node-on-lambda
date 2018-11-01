@@ -110,32 +110,32 @@ Resources:
               Capabilities: "CAPABILITY_NAMED_IAM"
               RoleArn: !GetAtt CloudformationRole.Arn
             RunOrder: 1
-          - Name: CreateChangeSet
+          - Name: "Deploy_Backend"
             ActionTypeId:
-              Category: Deploy
-              Owner: AWS
-              Provider: CloudFormation
-              Version: '1'
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
             InputArtifacts:
-              - Name: BackendBuild
+              - Name: "BackendBuild"
             Configuration:
-              ActionMode: CHANGE_SET_REPLACE
-              Capabilities: CAPABILITY_IAM
+              ActionMode: "CHANGE_SET_REPLACE"
+              Capabilities: "CAPABILITY_IAM"
               RoleArn: !GetAtt CloudformationRole.Arn
               StackName: !Sub "${ParentStackName}-todos-backend"
               ChangeSetName: changeset
               TemplatePath: !Sub "BackendBuild::app/backend/dist/packaged-sam.yml" # Must match buildspec.yml value
             RunOrder: 1
-          - Name: ExecuteChangeSet
+          - Name: "ExecuteChangeSet"
             ActionTypeId:
-              Category: Deploy
-              Owner: AWS
-              Provider: CloudFormation
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
               Version: '1'
             Configuration:
-              ActionMode: CHANGE_SET_EXECUTE
-              Capabilities: CAPABILITY_IAM
-              ChangeSetName: changeset
+              ActionMode: "CHANGE_SET_EXECUTE"
+              Capabilities: "CAPABILITY_IAM"
+              ChangeSetName: "changeset"
               RoleArn: !GetAtt CloudformationRole.Arn
               StackName: !Sub "${ParentStackName}-todos-backend"
             RunOrder: 2
