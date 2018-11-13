@@ -70,7 +70,7 @@ Resources:
             ProjectName: !Ref ClientBuildUTProjectName
           OutputArtifacts:
             - Name: "FrontendBuild"
-        - Name: "BackendBuild"
+        - Name: "Backend_Build"
           InputArtifacts:
             - Name: "SourceFetch"
           ActionTypeId:
@@ -110,7 +110,7 @@ Resources:
               Capabilities: "CAPABILITY_NAMED_IAM"
               RoleArn: !GetAtt CloudformationRole.Arn
             RunOrder: 1
-          - Name: "Deploy_Backend"
+          - Name: "Create_ChangeSet"
             ActionTypeId:
               Category: "Deploy"
               Owner: "AWS"
@@ -126,7 +126,7 @@ Resources:
               ChangeSetName: changeset
               TemplatePath: !Sub "BackendBuild::app/backend/dist/packaged-sam.yml" # Must match buildspec.yml value
             RunOrder: 1
-          - Name: "ExecuteChangeSet"
+          - Name: "Execute_ChangeSet"
             ActionTypeId:
               Category: "Deploy"
               Owner: "AWS"

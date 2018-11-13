@@ -54,13 +54,13 @@ function genConfiguration() {
 }
 
 function deploy() {
-  echo "[ Deploy Selenium Grid Resources ]";
+  echo "[ Deploy Serverless App Resources ]";
     PARAMETERS="ParameterKey=CFnTemplateBucketName,ParameterValue=$S3_BUCKET_NAME"
     PARAMETERS="$PARAMETERS ParameterKey=CFnTemplateBucketRegion,ParameterValue=$REGION"
     PARAMETERS="$PARAMETERS ParameterKey=Repository,ParameterValue=todos"
   aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region ${REGION} 1>/dev/null 2>&1
   if [ $? -ne 0 ]; then
-    echo "  create Selenium Grid resources"
+    echo "  create Serverless App resources"
     aws cloudformation create-stack \
       --stack-name "$STACK_NAME" \
       --template-url $TEMPLATE_URL  \
@@ -75,7 +75,7 @@ function deploy() {
         --stack-name "$STACK_NAME"
     fi
   else
-    echo "  update Selenium Grid resources"
+    echo "  update Serverless App resources"
     aws cloudformation update-stack \
       --stack-name "$STACK_NAME" \
       --template-url $TEMPLATE_URL \
@@ -92,7 +92,7 @@ function deploy() {
 }
 
 function deployPipeline() {
-  echo "[ Deploy Selenium Grid Resources ]";
+  echo "[ Deploy Serverless App Resources ]";
     PARAMETERS="ParameterKey=CFnTemplateBucketName,ParameterValue=$S3_BUCKET_NAME"
     PARAMETERS="$PARAMETERS ParameterKey=CFnTemplateBucketRegion,ParameterValue=$REGION"
     PARAMETERS="$PARAMETERS ParameterKey=SourceCodeRepositoryName,ParameterValue=todos"
@@ -100,7 +100,7 @@ function deployPipeline() {
     TEMPLATE_URL="https://s3.amazonaws.com/$S3_BUCKET_NAME/pl-node-on-lambda/CloudFormation/environment-pipeline.yml"
   aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region ${REGION} 1>/dev/null 2>&1
   if [ $? -ne 0 ]; then
-    echo "  create Selenium Grid resources"
+    echo "  create Serverless App resources"
     aws cloudformation create-stack \
       --stack-name "$STACK_NAME" \
       --template-url $TEMPLATE_URL  \
@@ -115,7 +115,7 @@ function deployPipeline() {
         --stack-name "$STACK_NAME"
     fi
   else
-    echo "  update Selenium Grid resources"
+    echo "  update Serverless App resources"
     aws cloudformation update-stack \
       --stack-name "$STACK_NAME" \
       --template-url $TEMPLATE_URL \
@@ -132,7 +132,7 @@ function deployPipeline() {
 }
 
 # Main
-echo "Set Up Selenium Grid ..."
+echo "Set Up Pipeline..."
 setUpCFnTemplates
 deploy
 deployPipeline
